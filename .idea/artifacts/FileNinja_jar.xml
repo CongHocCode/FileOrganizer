@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="FileNinja:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/FileNinja_jar</output-path>
+    <root id="root">
+      <element id="archive" name="FileOrganizerBot.jar">
+        <element id="module-output" name="FileOrganizerBot" />
+      </element>
+    </root>
+  </artifact>
+</component>
