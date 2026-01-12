@@ -1,60 +1,97 @@
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class Main {
     private static TrayIcon trayIcon;
+    // Tên cuốn sổ tay (sẽ nằm cạnh file .jar)
+    private static final String CONFIG_FILE = "bot_config.txt";
 
     public static void main(String[] args) {
-        // 1. Chạy trong luồng giao diện an toàn (Fix lỗi crash)
         SwingUtilities.invokeLater(() -> {
             createAndShowGUI();
         });
     }
 
     private static void createAndShowGUI() {
-        // 2. Ép giao diện giống Windows 10/11 (Fix lỗi JFileChooser xấu và lỗi)
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
 
         if (!SystemTray.isSupported()) {
             JOptionPane.showMessageDialog(null, "Máy không hỗ trợ System Tray!");
             return;
         }
 
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Chọn thư mục Downloads để Bot canh gác");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        // 1. KIỂM TRA SỔ TAY TRƯỚC
+        String savedPath = loadPathFromConfig();
+        String finalPath = null;
 
-        // Mặc định mở ở Downloads
-        File downloadDir = new File(System.getProperty("user.home"), "Downloads");
-        // Kiểm tra folder có tồn tại không trước khi set (Tránh lỗi nếu máy bạn dùng OneDrive)
-        if (downloadDir.exists()) {
-            chooser.setCurrentDirectory(downloadDir);
+        // Nếu có đường dẫn cũ và đường dẫn đó vẫn tồn tại -> Dùng luôn
+        if (savedPath != null && new File(savedPath).exists()) {
+            finalPath = savedPath;
+        } else {
+            // 2. NẾU KHÔNG CÓ (HOẶC SAI) -> MỚI HIỆN BẢNG HỎI
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Chọn thư mục Downloads để Bot canh gác");
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+            // Mặc định mở ở Downloads
+            File downloadDir = new File(System.getProperty("user.home"), "Downloads");
+            if (downloadDir.exists()) chooser.setCurrentDirectory(downloadDir);
+
+            int result = chooser.showOpenDialog(null);
+            if (result != JFileChooser.APPROVE_OPTION) {
+                System.out.println("Hủy chọn. Tắt Bot.");
+                return;
+            }
+            finalPath = chooser.getSelectedFile().getAbsolutePath();
+
+            // 3. LƯU LẠI VÀO SỔ TAY ĐỂ LẦN SAU KHỎI HỎI
+            savePathToConfig(finalPath);
         }
 
-        int result = chooser.showOpenDialog(null);
-        if (result != JFileChooser.APPROVE_OPTION) {
-            System.out.println("Hủy chọn. Tắt Bot.");
-            return;
-        }
+        // --- Đoạn dưới này giữ nguyên ---
+        createSystemTray(finalPath);
+        String pathForThread = finalPath; // Biến final để ném vào Thread
 
-        String path = chooser.getSelectedFile().getAbsolutePath();
-        createSystemTray(path);
-
-        // Chạy Bot ở luồng riêng (Thread khác) để không đơ giao diện
         new Thread(() -> {
             FileOrganizer bot = new FileOrganizer();
-            showNotification("Bot đang chạy ngầm! 🥷", "Đang canh gác: " + path);
-            bot.startOrganizing(path);
-            bot.startWatching(path);
+            // Chỉ hiện thông báo lần đầu hoặc khi cần thiết, khởi động cùng win thì có thể bỏ dòng này cho đỡ phiền
+            // showNotification("Bot đã online! 🥷", "Đang canh gác: " + pathForThread);
+
+            bot.startOrganizing(pathForThread);
+            bot.startWatching(pathForThread);
         }).start();
     }
 
-    // --- Giữ nguyên các hàm bên dưới không đổi ---
+    // --- Hàm đọc file config ---
+    private static String loadPathFromConfig() {
+        try {
+            File file = new File(CONFIG_FILE);
+            if (file.exists()) {
+                // Đọc nội dung file
+                return Files.readString(file.toPath()).trim();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // --- Hàm ghi file config ---
+    private static void savePathToConfig(String path) {
+        try {
+            Files.writeString(Path.of(CONFIG_FILE), path);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // --- Các hàm tạo TrayIcon giữ nguyên như cũ ---
     private static void createSystemTray(String path) {
         PopupMenu popup = new PopupMenu();
         MenuItem itemInfo = new MenuItem("Dang chay tai: " + path);
@@ -62,8 +99,18 @@ public class Main {
         MenuItem exitItem = new MenuItem("Thoat (Exit)");
         exitItem.addActionListener(e -> System.exit(0));
 
+        // Nút Reset để chọn lại thư mục (Tính năng mới)
+        MenuItem resetItem = new MenuItem("Doi thu muc (Reset)");
+        resetItem.addActionListener(e -> {
+            // Xóa file config và restart (đơn giản là bảo người dùng bật lại)
+            try { Files.deleteIfExists(Path.of(CONFIG_FILE)); } catch (IOException ex) {}
+            JOptionPane.showMessageDialog(null, "Đã xóa cài đặt. Hãy khởi động lại Bot để chọn thư mục mới.");
+            System.exit(0);
+        });
+
         popup.add(itemInfo);
         popup.addSeparator();
+        popup.add(resetItem); // Thêm nút reset vào menu
         popup.add(exitItem);
 
         Image image = createImage();

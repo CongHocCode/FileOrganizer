@@ -15,6 +15,7 @@ class FileOrganizer {
         rules.add(new ExtensionRule(".jpg", "Images"));
         rules.add(new ExtensionRule(".png", "Images"));
         rules.add(new ExtensionRule(".mp3", "Music"));
+        rules.add(new ExtensionRule(".mp4", "Videos"));
         rules.add(new ExtensionRule(".docx", "Documents"));
         rules.add(new ExtensionRule(".pdf", "Documents"));
         rules.add(new ExtensionRule(".msi", "Installers"));
