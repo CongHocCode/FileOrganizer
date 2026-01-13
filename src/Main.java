@@ -70,16 +70,18 @@ public class Main {
 
     // --- Hàm đọc file config ---
     private static String loadPathFromConfig() {
-        try {
-            File file = new File(CONFIG_FILE);
-            if (file.exists()) {
-                // Đọc nội dung file
-                return Files.readString(file.toPath()).trim();
-            }
+        File file = new File(CONFIG_FILE);
+        if (!file.exists()) return null;
+
+        try(java.io.BufferedReader reader = Files.newBufferedReader(file.toPath())) {
+            //Đọc 1 dòng
+            return reader.readLine().trim();
+
+            //Tới dấu } thì Java tự động gọi reader.close();
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     // --- Hàm ghi file config ---

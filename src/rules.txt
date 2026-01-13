@@ -1,0 +1,12 @@
+# Đây là file cấu hình luật
+# Định dạng: Đuôi|Folder
+.jpg|Images
+.png|Images
+.mp4|Videos
+.docx|Documents
+.pdf|Documents
+.exe|Installers
+.msi|Installers
+.iso|Installers
+.zip|Compressed
+.rar|Compressed
