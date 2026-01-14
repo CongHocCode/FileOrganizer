@@ -3,13 +3,14 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
 class FileOrganizer {
     // Biến thành viên (Field) - Chứa bộ luật
     private final ArrayList<Rule> rules;
-
+    private final HashMap<String, Integer> statistics;
     // Constructor: Nơi khởi tạo bộ luật
     public FileOrganizer() {
         rules = new ArrayList<>();
@@ -30,7 +31,7 @@ class FileOrganizer {
             rules.add(new ExtensionRule(".rar", "Compressed"));
             rules.add(new ExtensionRule(".zip", "Compressed"));
         }
-
+        this.statistics = new HashMap<>();
     }
 
 
@@ -48,6 +49,7 @@ class FileOrganizer {
         File[] listOfFiles = folder.listFiles();
         if (listOfFiles == null) return;
 
+        statistics.clear();
         System.out.println("--- BẮT ĐẦU DỌN DẸP ---");
 
         //Lọc bớt các file rác
@@ -72,7 +74,7 @@ class FileOrganizer {
                 System.out.println("CẢNH BÁO: " + e.getMessage());
             }
         }
-        System.out.println("✅ Hoàn thành dọn dẹp file cũ!");
+        printReport();
     }
 
     private void loadRulesFromFile() {
@@ -92,7 +94,7 @@ class FileOrganizer {
                     .filter(parts -> parts.length == 2)
                     .map(parts -> new ExtensionRule(parts[0].trim(), parts[1].trim()))
                     .forEach(this.rules::add);
-            System.out.println("Đã nạp xong " + rules.size() + " luật.");
+            System.out.println("Đã nạp xong " + rules.size() + " luật.✅");
         } catch (IOException e) {
             System.err.println("Lỗi đọc file rules.txt: " + e.getMessage());
         }
@@ -116,6 +118,7 @@ class FileOrganizer {
 
         if (file.isFile()) {
             String targetFolder = rules.stream().filter(r -> r.check(file)).findFirst().map(Rule::getFolder).orElse("Others");
+            moveFile(file, targetFolder);
         } else if (file.isDirectory()) {
             String currentFolderName = file.getName();
             //Né các folder dùng để xếp file vào
@@ -207,8 +210,12 @@ class FileOrganizer {
 
             // Di chuyển (Ghi đè nếu trùng)
             Files.move(file.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+            //Cập nhật bảng thống kê
+            statistics.merge(destinationFolder, 1, Integer::sum);
             Main.showNotification("Đã dọn dẹp! 🧹",
                     file.getName() + " -> " + destinationFolder);
+
         } catch (FileSystemException e) {
             System.err.println("Không thể chuyển file: " + file.getName() + " -> " + destinationFolder);
             System.err.println("Lý do: File đang được sử dụng bởi ứng dụng khác!");
@@ -221,4 +228,17 @@ class FileOrganizer {
         }
     }
 
+    private void printReport() {
+        if (statistics.isEmpty()) {
+            System.out.println("Không có báo cáo nào để tổng kết!");
+            return;
+        }
+
+        System.out.println("BÁO CÁO TỔNG KẾT:");
+        statistics.forEach((folder, count) -> System.out.println(folder + ": " + count));
+
+        int total = statistics.values().stream().mapToInt(Integer::intValue).sum();
+        System.out.println("---------------------------");
+        System.out.println("✅ Tổng cộng: " + total + " files đã được xử lý.");
+    }
 }

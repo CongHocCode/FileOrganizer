@@ -10,3 +10,5 @@
 .iso|Installers
 .zip|Compressed
 .rar|Compressed
+.test | UIA
+.test|uia
